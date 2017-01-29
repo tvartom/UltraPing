@@ -13,8 +13,9 @@ UltraPing	KEYWORD1
 ###################################
 
 ping	KEYWORD2
-ping_in	KEYWORD2
-ping_cm	KEYWORD2
+ping_length	KEYWORD2
+ping_multi	KEYWORD2
+ping_threshold	KEYWORD2
 ping_median	KEYWORD2
 ping_timer	KEYWORD2
 check_timer	KEYWORD2
