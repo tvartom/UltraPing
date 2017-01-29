@@ -1,3 +1,10 @@
+# UltraPing #
+## Ardunio library for Ultrasonic sensors ##
+* Possible to read multiple echos. (Eg see beyond first echo)
+* Possible to use a threshold to only read distances further away
+* A fork of Tim Eckel's New Ping.
+
+
 ```
 #!arduino
 
