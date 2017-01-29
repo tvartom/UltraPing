@@ -61,13 +61,12 @@
 //     max_cm_distance - [Optional] Maximum distance you wish to sense. Default=500cm.
 //
 // METHODS:
-//   sonar.ping([max_cm_distance]) - Send a ping and get the echo time (in microseconds) as a result. [max_cm_distance] allows you to optionally set a new max distance. 
-//   sonar.ping_in([max_cm_distance]) - Send a ping and get the distance in whole inches. [max_cm_distance] allows you to optionally set a new max distance.
-//   sonar.ping_cm([max_cm_distance]) - Send a ping and get the distance in whole centimeters. [max_cm_distance] allows you to optionally set a new max distance.
-//   sonar.ping_median(iterations [, max_cm_distance]) - Do multiple pings (default=5), discard out of range pings and return median in microseconds. [max_cm_distance] allows you to optionally set a new max distance.
+//   sonar.ping([max_distance]) - Send a ping and get the echo time (in microseconds) as a result. [max_distance] allows you to optionally set a new max distance.
+//   sonar.ping_length([max_distance]) - Send a ping and get the distance in whole length units. [max_distance] allows you to optionally set a new max distance.
+//   sonar.ping_median(iterations [, max_distance]) - Do multiple pings (default=5), discard out of range pings and return median in microseconds. [max_distance] allows you to optionally set a new max distance.
 //   UltraPing::convert_in(echoTime) - Convert echoTime from microseconds to inches (rounds to nearest inch).
-//   UltraPing::convert_cm(echoTime) - Convert echoTime from microseconds to centimeters (rounds to nearest cm).
-//   sonar.ping_timer(function [, max_cm_distance]) - Send a ping and call function to test if ping is complete. [max_cm_distance] allows you to optionally set a new max distance.
+//   UltraPing::convert_length(echoTime) - Convert echoTime from microseconds to length unit (rounds to nearest integer). Depends on LENGTH_UNIT_CM or LENGTH_UNIT_INCH
+//   sonar.ping_timer(function [, max_distance]) - Send a ping and call function to test if ping is complete. [max_distance] allows you to optionally set a new max distance.
 //   sonar.check_timer() - Check if ping has returned within the set distance limit.
 //   UltraPing::timer_us(frequency, function) - Call function every frequency microseconds.
 //   UltraPing::timer_ms(frequency, function) - Call function every frequency milliseconds.
@@ -76,6 +75,13 @@
 // HISTORY:
 //  2017-01-29 UltraPing v1.0 - Lasse Löfquist forked NewPing, renamed to
 //  UltraPing.
+//  Some mayor refactoring, made to more maintanable code. Parallel logic
+//  removed, replaced by inline methods for IO and precompiler directives.
+//  Length unit is controlled by precompiler directive, and only one unit
+//  is possible to use at a time. Methods with cm or inch in signature are
+//  replaced by a universal length unit-variant.
+//  Need to be tested, might have broken somethings.
+//
 //
 // NewPing Library history:
 // 07/30/2016 v1.8 - Added support for non-AVR microcontrollers. For non-AVR
@@ -166,28 +172,43 @@
 	#include <avr/interrupt.h>
 #endif
 
+#if !defined(LENGTH_UNIT_CM) && !defined (LENGTH_UNIT_INCH)
+	#define LENGTH_UNIT_CM
+	//#define LENGTH_UNIT_INCH
+#endif
+
+#if defined (LENGTH_UNIT_CM)
+	#define US_ROUNDTRIP_LENGTH 57      // Microseconds (uS) it takes sound to travel round-trip 1cm (2cm total), uses integer to save compiled code space. Default=57
+#elif defined (LENGTH_UNIT_INCH)
+	#define US_ROUNDTRIP_LENGTH 146     // Microseconds (uS) it takes sound to travel round-trip 1 inch (2 inches total), uses integer to save compiled code space. Defalult=146
+#else
+Choose one length unit!
+#endif
 // Shouldn't need to change these values unless you have a specific need to do so.
-#define MAX_SENSOR_DISTANCE 500 // Maximum sensor distance can be as high as 500cm, no reason to wait for ping longer than sound takes to travel this distance and back. Default=500
-#define US_ROUNDTRIP_CM 57      // Microseconds (uS) it takes sound to travel round-trip 1cm (2cm total), uses integer to save compiled code space. Default=57
-#define US_ROUNDTRIP_IN 146     // Microseconds (uS) it takes sound to travel round-trip 1 inch (2 inches total), uses integer to save compiled code space. Defalult=146
+#define MAX_SENSOR_DISTANCE 500 // In length unit (define LENGTH_UNIT_CM or LENGTH_UNIT_INCH) Maximum sensor distance can be as high as 500cm, (~200inch) no reason to wait for ping longer than sound takes to travel this distance and back. Default=500
+//#define US_ROUNDTRIP_CM 57      // Microseconds (uS) it takes sound to travel round-trip 1cm (2cm total), uses integer to save compiled code space. Default=57
+//#define US_ROUNDTRIP_IN 146     // Microseconds (uS) it takes sound to travel round-trip 1 inch (2 inches total), uses integer to save compiled code space. Defalult=146
 #define ONE_PIN_ENABLED true    // Set to "false" to disable one pin mode which saves around 14-26 bytes of binary size. Default=true
 #define ROUNDING_ENABLED false  // Set to "true" to enable distance rounding which also adds 64 bytes to binary size. Default=false
 #define URM37_ENABLED false     // Set to "true" to enable support for the URM37 sensor in PWM mode. Default=false
 #define TIMER_ENABLED true      // Set to "false" to disable the timer ISR (if getting "__vector_7" compile errors set this to false). Default=true
 
 // Probably shouldn't change these values unless you really know what you're doing.
-#define NO_ECHO 0               // Value returned if there's no ping echo within the specified MAX_SENSOR_DISTANCE or max_cm_distance. Default=0
+#define NO_ECHO 0               // Value returned if there's no ping echo within the specified MAX_SENSOR_DISTANCE or max_distance. Default=0
 #define MAX_SENSOR_DELAY 5800   // Maximum uS it takes for sensor to start the ping. Default=5800
 #define ECHO_TIMER_FREQ 24      // Frequency to check for a ping echo (every 24uS is about 0.4cm accuracy). Default=24
 #define PING_MEDIAN_DELAY 29000 // Microsecond delay between pings in the ping_median method. Default=29000
 #define PING_OVERHEAD 5         // Ping overhead in microseconds (uS). Default=5
 #define PING_TIMER_OVERHEAD 13  // Ping timer overhead in microseconds (uS). Default=13
 #if URM37_ENABLED == true
-	#undef  US_ROUNDTRIP_CM
-	#undef  US_ROUNDTRIP_IN
-	#define US_ROUNDTRIP_CM 50  // Every 50uS PWM signal is low indicates 1cm distance. Default=50
-	#define US_ROUNDTRIP_IN 127 // If 50uS is 1cm, 1 inch would be 127uS (50 x 2.54 = 127). Default=127
-	#define ISACTIVE(VALUE) (!(VALUE))
+	#undef  US_ROUNDTRIP_LENGTH
+	#if defined (LENGTH_UNIT_CM)
+		#define US_ROUNDTRIP_LENGTH 50      // Every 50uS PWM signal is low indicates 1cm distance. Default=50
+	#elif defined (LENGTH_UNIT_INCH)
+		#define US_ROUNDTRIP_LENGTH 127 // If 50uS is 1cm, 1 inch would be 127uS (50 x 2.54 = 127). Default=127
+	#endif
+
+#define ISACTIVE(VALUE) (!(VALUE))
 	#define ISNOTACTIVE(VALUE) (VALUE)
 #else
 	#define ISACTIVE(VALUE) (VALUE)
@@ -197,10 +218,10 @@
 
 // Conversion from uS to distance
 #if ROUNDING_ENABLED == false
-	#define ULTRA_PING_CONVERT(echoTime, conversionFactor) (echoTime / conversionFactor)
+	#define ULTRA_PING_US_2_LENGTH_UNIT(echoTime) (echoTime / US_ROUNDTRIP_LENGTH)
 #else
 	//(round result to nearest cm or inch).
-	#define ULTRA_PING_CONVERT(echoTime, conversionFactor) (max(((unsigned int)echoTime + conversionFactor / 2) / conversionFactor, (echoTime ? 1 : 0)))
+	#define ULTRA_PING_US_2_LENGTH_UNIT(echoTime) (max(((unsigned int)echoTime + US_ROUNDTRIP_LENGTH / 2) / US_ROUNDTRIP_LENGTH, (echoTime ? 1 : 0)))
 #endif
 
 // Detect non-AVR microcontrollers (Teensy 3.x, Arduino DUE, etc.) and don't use port registers or timer interrupts as required.
@@ -237,15 +258,13 @@
 
 class UltraPing {
 	public:
-		UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_cm_distance = MAX_SENSOR_DISTANCE);
-		unsigned int ping(unsigned int max_cm_distance = 0);
-		unsigned long ping_cm(unsigned int max_cm_distance = 0);
-		unsigned long ping_in(unsigned int max_cm_distance = 0);
-		unsigned long ping_median(uint8_t it = 5, unsigned int max_cm_distance = 0);
-		static unsigned int convert_cm(unsigned int echoTime);
-		static unsigned int convert_in(unsigned int echoTime);
+		UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_distance = MAX_SENSOR_DISTANCE);
+		unsigned int ping(unsigned int max_distance = 0);
+		unsigned long ping_length(unsigned int max_distance = 0);
+		unsigned long ping_median(uint8_t it = 5, unsigned int max_distance = 0);
+		static unsigned int convert_length(unsigned int echoTime);
 #if TIMER_ENABLED == true
-		void ping_timer(void (*userFunc)(void), unsigned int max_cm_distance = 0);
+		void ping_timer(void (*userFunc)(void), unsigned int max_distance = 0);
 		boolean check_timer();
 		unsigned long ping_result;
 		static void timer_us(unsigned int frequency, void (*userFunc)(void));
@@ -262,7 +281,7 @@ class UltraPing {
 #endif
 
 		boolean ping_trigger();
-		void set_max_distance(unsigned int max_cm_distance);
+		void set_max_distance(unsigned int max_distance);
 #if TIMER_ENABLED == true
 		boolean ping_trigger_timer(unsigned int trigger_delay);
 		boolean ping_wait_timer();
