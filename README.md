@@ -4,6 +4,8 @@
 * Possible to use a threshold to only read distances further away
 * A fork of Tim Eckel's New Ping.
 
+Link to download:
+[https://bitbucket.org/Tvartom/ultraping/downloads?tab=tags](https://bitbucket.org/Tvartom/ultraping/downloads?tab=tags)
 
 ```
 #!arduino
