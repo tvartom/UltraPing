@@ -16,6 +16,7 @@
 // software, but I realized it could be made.
 // Instead of starting from scratch, I started to modify Tim Eckel's excellent
 // library. Tim's library also taught me a lot of ultrasonic sensor programming.
+// Would be honored if Tim wants to include any of my code in his project.
 // ---------------------------------------------------------------------------
 //
 // ---------------------------------------------------------------------------
@@ -55,19 +56,21 @@
 // * Ease of using multiple sensors (example sketch with 15 sensors).
 // * More accurate distance calculation (cm, inches & uS).
 // * Doesn't use pulseIn, which is slow and gives incorrect results with some ultrasonic sensor models.
+// * Possible to see beyond first echo, and set threshold for first measured distance. (Exprimental)
 // * Actively developed with features being added and bugs/issues addressed.
 //
 // CONSTRUCTOR:
-//   UltraPing sonar(trigger_pin, echo_pin [, max_cm_distance])
+//   UltraPing sonar(trigger_pin, echo_pin [, max_distance])
 //     trigger_pin & echo_pin - Arduino pins connected to sensor trigger and echo.
 //       NOTE: To use the same Arduino pin for trigger and echo, specify the same pin for both values.
-//     max_cm_distance - [Optional] Maximum distance you wish to sense. Default=500cm.
+//     max_distance - [Optional] Maximum distance you wish to sense. Default=500cm.
 //
 // METHODS:
 //   sonar.ping([max_distance]) - Send a ping and get the echo time (in microseconds) as a result. [max_distance] allows you to optionally set a new max distance.
 //   sonar.ping_length([max_distance]) - Send a ping and get the distance in whole length units. [max_distance] allows you to optionally set a new max distance.
 //   sonar.ping_median(iterations [, max_distance]) - Do multiple pings (default=5), discard out of range pings and return median in microseconds. [max_distance] allows you to optionally set a new max distance.
-//   UltraPing::convert_in(echoTime) - Convert echoTime from microseconds to inches (rounds to nearest inch).
+//   sonar.ping_multi(hits[], maximum_hits, [threshold_distance], [max_distance]) - Exprimental! Detects several echo at different distance and return number of hits. Echo times of hits in the array.
+//   ping_threshold(threshold_distance, [max_distance]) - Exprimental! Return echo time for first echo beyond threshold_distance. (Uses ping_multi internal)
 //   UltraPing::convert_length(echoTime) - Convert echoTime from microseconds to length unit (rounds to nearest integer). Depends on LENGTH_UNIT_CM or LENGTH_UNIT_INCH
 //   sonar.ping_timer(function [, max_distance]) - Send a ping and call function to test if ping is complete. [max_distance] allows you to optionally set a new max distance.
 //   sonar.check_timer() - Check if ping has returned within the set distance limit.
@@ -75,15 +78,17 @@
 //   UltraPing::timer_ms(frequency, function) - Call function every frequency milliseconds.
 //   UltraPing::timer_stop() - Stop the timer.
 //
-// HISTORY:
+// HISTORY UltraPing:
 //  2017-01-29 UltraPing v1.0 - Lasse Löfquist forked NewPing, renamed to
 //  UltraPing.
-//  Some mayor refactoring, made to more maintanable code. Parallel logic
-//  removed, replaced by inline methods for IO and precompiler directives.
+//  Some mayor refactoring, made to more maintanable code, and possibility
+//  to develop ping_multi.
+//  Parallel logic removed, replaced by inline methods for IO and precompiler directives.
 //  Length unit is controlled by precompiler directive, and only one unit
 //  is possible to use at a time. Methods with cm or inch in signature are
 //  replaced by a universal length unit-variant.
-//  Need to be tested, might have broken somethings.
+//  New experimental features: ping_multi and ping_threshold.
+//  Need to be tested, might have broken something.
 //
 //
 // NewPing Library history:
