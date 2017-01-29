@@ -18,7 +18,7 @@
 // UltraPing constructor
 // ---------------------------------------------------------------------------
 
-UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_cm_distance) {
+UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_distance) {
 #if DO_BITWISE == true
 	_triggerBit = digitalPinToBitMask(trigger_pin); // Get the port register bitmask for the trigger pin.
 	_echoBit = digitalPinToBitMask(echo_pin);       // Get the port register bitmask for the echo pin.
@@ -32,7 +32,7 @@ UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_cm_
 	_echoPin = echo_pin;
 #endif
 
-	set_max_distance(max_cm_distance); // Call function to set the max sensor distance.
+	set_max_distance(max_distance); // Call function to set the max sensor distance.
 
 #if (defined (__arm__) && defined (TEENSYDUINO)) || DO_BITWISE != true
 	pinMode(echo_pin, INPUT);     // Set echo pin to input (on Teensy 3.x (ARM), pins default to disabled, at least one pinMode() is needed for GPIO mode).
@@ -53,8 +53,8 @@ UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_cm_
 // Standard ping methods
 // ---------------------------------------------------------------------------
 
-unsigned int UltraPing::ping(unsigned int max_cm_distance) {
-	if (max_cm_distance > 0) set_max_distance(max_cm_distance); // Call function to set a new max sensor distance.
+unsigned int UltraPing::ping(unsigned int max_distance) {
+	if (max_distance > 0) set_max_distance(max_distance); // Call function to set a new max sensor distance.
 
 	if (!ping_trigger()) return NO_ECHO; // Trigger a ping, if it returns false, return NO_ECHO to the calling function.
 
@@ -66,19 +66,13 @@ unsigned int UltraPing::ping(unsigned int max_cm_distance) {
 }
 
 
-unsigned long UltraPing::ping_cm(unsigned int max_cm_distance) {
-	unsigned long echoTime = UltraPing::ping(max_cm_distance); // Calls the ping method and returns with the ping echo distance in uS.
-	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_CM); // Convert uS to centimeters.
+unsigned long UltraPing::ping_length(unsigned int max_distance) {
+	unsigned long echoTime = UltraPing::ping(max_distance); // Calls the ping method and returns with the ping echo distance in uS.
+	return ULTRA_PING_US_2_LENGTH_UNIT(echoTime); // Convert uS to length unit.
 }
 
 
-unsigned long UltraPing::ping_in(unsigned int max_cm_distance) {
-	unsigned long echoTime = UltraPing::ping(max_cm_distance); // Calls the ping method and returns with the ping echo distance in uS.
-	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_IN); // Convert uS to inches.
-}
-
-
-unsigned long UltraPing::ping_median(uint8_t it, unsigned int max_cm_distance) {
+unsigned long UltraPing::ping_median(uint8_t it, unsigned int max_distance) {
 	unsigned int uS[it], last;
 	uint8_t j, i = 0;
 	unsigned long t;
@@ -86,7 +80,7 @@ unsigned long UltraPing::ping_median(uint8_t it, unsigned int max_cm_distance) {
 
 	while (i < it) {
 		t = micros();                  // Start ping timestamp.
-		last = ping(max_cm_distance);  // Send ping.
+		last = ping(max_distance);  // Send ping.
 
 		if (last != NO_ECHO) {         // Ping in range, include as part of median.
 			if (i > 0) {               // Don't start sort till second ping.
@@ -178,11 +172,11 @@ boolean UltraPing::ping_trigger() {
 }
 
 
-void UltraPing::set_max_distance(unsigned int max_cm_distance) {
+void UltraPing::set_max_distance(unsigned int max_distance) {
 #if ROUNDING_ENABLED == false
-	_maxEchoTime = min(max_cm_distance + 1, (unsigned int) MAX_SENSOR_DISTANCE + 1) * US_ROUNDTRIP_CM; // Calculate the maximum distance in uS (no rounding).
+	_maxEchoTime = min(max_distance + 1, (unsigned int) MAX_SENSOR_DISTANCE + 1) * US_ROUNDTRIP_LENGTH; // Calculate the maximum distance in uS (no rounding).
 #else
-	_maxEchoTime = min(max_cm_distance, (unsigned int) MAX_SENSOR_DISTANCE) * US_ROUNDTRIP_CM + (US_ROUNDTRIP_CM / 2); // Calculate the maximum distance in uS.
+	_maxEchoTime = min(max_distance, (unsigned int) MAX_SENSOR_DISTANCE) * US_ROUNDTRIP_LENGTH + (US_ROUNDTRIP_LENGTH / 2); // Calculate the maximum distance in uS.
 #endif
 }
 
@@ -193,8 +187,8 @@ void UltraPing::set_max_distance(unsigned int max_cm_distance) {
 // Timer interrupt ping methods (won't work with non-AVR, ATmega128 and all ATtiny microcontrollers)
 // ---------------------------------------------------------------------------
 
-void UltraPing::ping_timer(void (*userFunc)(void), unsigned int max_cm_distance) {
-	if (max_cm_distance > 0) set_max_distance(max_cm_distance); // Call function to set a new max sensor distance.
+void UltraPing::ping_timer(void (*userFunc)(void), unsigned int max_distance) {
+	if (max_distance > 0) set_max_distance(max_distance); // Call function to set a new max sensor distance.
 
 	if (!ping_trigger()) return;         // Trigger a ping, if it returns false, return without starting the echo timer.
 	timer_us(ECHO_TIMER_FREQ, userFunc); // Set ping echo timer check every ECHO_TIMER_FREQ uS.
@@ -332,14 +326,9 @@ ISR(TIMER2_COMPA_vect) {
 
 
 // ---------------------------------------------------------------------------
-// Conversion methods (rounds result to nearest cm or inch).
+// Conversion method (rounds result to nearest cm or inch).
 // ---------------------------------------------------------------------------
-
-unsigned int UltraPing::convert_cm(unsigned int echoTime) {
-	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_CM); // Convert uS to centimeters.
+unsigned int UltraPing::convert_length(unsigned int echoTime) {
+	return ULTRA_PING_US_2_LENGTH_UNIT(echoTime); // Convert uS to length unit.
 }
 
-
-unsigned int UltraPing::convert_in(unsigned int echoTime) {
-	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_IN); // Convert uS to inches.
-}
