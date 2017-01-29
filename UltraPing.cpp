@@ -105,7 +105,6 @@ unsigned int UltraPing::ping_multi(unsigned int hit[], unsigned int maximum_hits
 		unsigned long second_end_time = micros();
 
 		unsigned long lengthSecond = second_end_time - (_max_time - _maxEchoTime) - PING_OVERHEAD;
-		Serial.println(String(lengthSecond) + "<" + String(first_length) + "THREE_QUARTERS: " + String(THREE_QUARTERS(first_length)));
 		if (lengthSecond < THREE_QUARTERS(first_length)) { //If second ping is (significant) shorter than first, it must be an echo from first ping.
 			//New hit!
 			// Calculate ping time from the start of first ping, and register in hit

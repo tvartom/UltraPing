@@ -190,13 +190,21 @@
 Choose one length unit!
 #endif
 // Shouldn't need to change these values unless you have a specific need to do so.
-#define MAX_SENSOR_DISTANCE 500 // In length unit (define LENGTH_UNIT_CM or LENGTH_UNIT_INCH) Maximum sensor distance can be as high as 500cm, (~200inch) no reason to wait for ping longer than sound takes to travel this distance and back. Default=500
-//#define US_ROUNDTRIP_CM 57      // Microseconds (uS) it takes sound to travel round-trip 1cm (2cm total), uses integer to save compiled code space. Default=57
-//#define US_ROUNDTRIP_IN 146     // Microseconds (uS) it takes sound to travel round-trip 1 inch (2 inches total), uses integer to save compiled code space. Defalult=146
-#define ONE_PIN_ENABLED true    // Set to "false" to disable one pin mode which saves around 14-26 bytes of binary size. Default=true
-#define ROUNDING_ENABLED false  // Set to "true" to enable distance rounding which also adds 64 bytes to binary size. Default=false
-#define URM37_ENABLED false     // Set to "true" to enable support for the URM37 sensor in PWM mode. Default=false
-#define TIMER_ENABLED true      // Set to "false" to disable the timer ISR (if getting "__vector_7" compile errors set this to false). Default=true
+#ifndef MAX_SENSOR_DISTANCE
+	#define MAX_SENSOR_DISTANCE 500 // In length unit (define LENGTH_UNIT_CM or LENGTH_UNIT_INCH) Maximum sensor distance can be as high as 500cm, (~200inch) no reason to wait for ping longer than sound takes to travel this distance and back. Default=500
+#endif
+#ifndef ONE_PIN_ENABLED
+	#define ONE_PIN_ENABLED true    // Set to "false" to disable one pin mode which saves around 14-26 bytes of binary size. Default=true
+#endif
+#ifndef ROUNDING_ENABLED
+	#define ROUNDING_ENABLED false  // Set to "true" to enable distance rounding which also adds 64 bytes to binary size. Default=false
+#endif
+#ifndef URM37_ENABLED
+	#define URM37_ENABLED false     // Set to "true" to enable support for the URM37 sensor in PWM mode. Default=false
+#endif
+#ifndef TIMER_ENABLED
+	#define TIMER_ENABLED true      // Set to "false" to disable the timer ISR (if getting "__vector_7" compile errors set this to false). Default=true
+#endif
 
 
 // Probably shouldn't change these values unless you really know what you're doing.
@@ -206,6 +214,7 @@ Choose one length unit!
 #define PING_MEDIAN_DELAY 29000 // Microsecond delay between pings in the ping_median method. Default=29000
 #define PING_OVERHEAD 5         // Ping overhead in microseconds (uS). Default=5
 #define PING_TIMER_OVERHEAD 13  // Ping timer overhead in microseconds (uS). Default=13
+
 #if URM37_ENABLED == true
 	#undef  US_ROUNDTRIP_LENGTH
 	#if defined (LENGTH_UNIT_CM)
@@ -221,8 +230,8 @@ Choose one length unit!
 	#define ISNOTACTIVE(VALUE) (!(VALUE))
 #endif
 
-//Used in multi_ping
-#define THREE_QUARTERS(VALUE) (((VALUE) / 2 + (VALUE) / 4)) // Bitwise aprox for VALUE * .75
+//Used in ping_multi
+#define THREE_QUARTERS(VALUE) (((VALUE) / 2 + (VALUE) / 4)) // Bitwise approx for VALUE * .75
 
 
 // Conversion from uS to distance
