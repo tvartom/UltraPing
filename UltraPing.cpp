@@ -58,21 +58,9 @@ unsigned int UltraPing::ping(unsigned int max_cm_distance) {
 
 	if (!ping_trigger()) return NO_ECHO; // Trigger a ping, if it returns false, return NO_ECHO to the calling function.
 
-#if URM37_ENABLED == true
-	#if DO_BITWISE == true
-		while (!(*_echoInput & _echoBit))             // Wait for the ping echo.
-	#else
-		while (!digitalRead(_echoPin))                // Wait for the ping echo.
-	#endif
-			if (micros() > _max_time) return NO_ECHO; // Stop the loop and return NO_ECHO (false) if we're beyond the set maximum distance.
-#else
-	#if DO_BITWISE == true
-		while (*_echoInput & _echoBit)                // Wait for the ping echo.
-	#else
-		while (digitalRead(_echoPin))                 // Wait for the ping echo.
-	#endif
-			if (micros() > _max_time) return NO_ECHO; // Stop the loop and return NO_ECHO (false) if we're beyond the set maximum distance.
-#endif
+	while (ISACTIVE(readEcho())) {                // Wait for the ping echo.
+		if (micros() > _max_time) return NO_ECHO; // Stop the loop and return NO_ECHO (false) if we're beyond the set maximum distance.
+	}
 
 	return (micros() - (_max_time - _maxEchoTime) - PING_OVERHEAD); // Calculate ping time, include overhead.
 }
@@ -116,65 +104,74 @@ unsigned long UltraPing::ping_median(uint8_t it, unsigned int max_cm_distance) {
 	return (uS[it >> 1]); // Return the ping distance median.
 }
 
+// -------------------------------------------------------------------------------------
+// Input and output methods (Bitwise or normal)
+// All of them are marked inline, so compiler will probably inline them at comile-time.
+// -------------------------------------------------------------------------------------
+
+inline boolean UltraPing::readEcho() {
+	#if DO_BITWISE == true
+		return *_echoInput & _echoBit;
+	#else
+		return digitalRead(_echoPin);
+	#endif
+}
+
+inline void UltraPing::setTriggerActive() {
+	#if DO_BITWISE == true
+		*_triggerOutput |= _triggerBit;    // Set trigger pin high, this tells the sensor to send out a ping.
+	#else
+		digitalWrite(_triggerPin, HIGH);   // Set trigger pin high, this tells the sensor to send out a ping.
+	#endif
+}
+inline void UltraPing::setTriggerNotActive() {
+	#if DO_BITWISE == true
+		*_triggerOutput &= ~_triggerBit;   // Set the trigger pin low.
+	#else
+		digitalWrite(_triggerPin, LOW);    // Set the trigger pin low.
+	#endif
+}
+#if ONE_PIN_ENABLED == true
+	inline void UltraPing::onePinSetTriggerMode() {
+		#if DO_BITWISE == true
+			*_triggerMode |= _triggerBit;  // Set trigger pin to output.
+		#else
+			pinMode(_triggerPin, OUTPUT); // Set trigger pin to output.
+		#endif
+	}
+	inline void UltraPing::onePinSetEchoMode() {
+		#if DO_BITWISE == true
+			*_triggerMode &= ~_triggerBit; // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
+		#else
+			pinMode(_triggerPin, INPUT);  // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
+		#endif
+	}
+#endif
 
 // ---------------------------------------------------------------------------
 // Standard and timer interrupt ping method support functions (not called directly)
 // ---------------------------------------------------------------------------
 
 boolean UltraPing::ping_trigger() {
-#if DO_BITWISE == true
 	#if ONE_PIN_ENABLED == true
-		*_triggerMode |= _triggerBit;  // Set trigger pin to output.
+		onePinSetTriggerMode();
 	#endif
 
-	*_triggerOutput &= ~_triggerBit;   // Set the trigger pin low, should already be low, but this will make sure it is.
+	setTriggerNotActive();             // Should already be low, but this will make sure it is.
 	delayMicroseconds(4);              // Wait for pin to go low.
-	*_triggerOutput |= _triggerBit;    // Set trigger pin high, this tells the sensor to send out a ping.
+	setTriggerActive();                // Set trigger pin high, this tells the sensor to send out a ping.
 	delayMicroseconds(10);             // Wait long enough for the sensor to realize the trigger pin is high. Sensor specs say to wait 10uS.
-	*_triggerOutput &= ~_triggerBit;   // Set trigger pin back to low.
+	setTriggerNotActive();             // Set trigger pin back to low.
 
 	#if ONE_PIN_ENABLED == true
-		*_triggerMode &= ~_triggerBit; // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
+		onePinSetEchoMode(); // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
 	#endif
 
-	#if URM37_ENABLED == true
-		if (!(*_echoInput & _echoBit)) return false;            // Previous ping hasn't finished, abort.
-		_max_time = micros() + _maxEchoTime + MAX_SENSOR_DELAY; // Maximum time we'll wait for ping to start (most sensors are <450uS, the SRF06 can take up to 34,300uS!)
-		while (*_echoInput & _echoBit)                          // Wait for ping to start.
-			if (micros() > _max_time) return false;             // Took too long to start, abort.
-	#else
-		if (*_echoInput & _echoBit) return false;               // Previous ping hasn't finished, abort.
-		_max_time = micros() + _maxEchoTime + MAX_SENSOR_DELAY; // Maximum time we'll wait for ping to start (most sensors are <450uS, the SRF06 can take up to 34,300uS!)
-		while (!(*_echoInput & _echoBit))                       // Wait for ping to start.
-			if (micros() > _max_time) return false;             // Took too long to start, abort.
-	#endif
-#else
-	#if ONE_PIN_ENABLED == true
-		pinMode(_triggerPin, OUTPUT); // Set trigger pin to output.
-	#endif
-	
-	digitalWrite(_triggerPin, LOW);   // Set the trigger pin low, should already be low, but this will make sure it is.
-	delayMicroseconds(4);             // Wait for pin to go low.
-	digitalWrite(_triggerPin, HIGH);  // Set trigger pin high, this tells the sensor to send out a ping.
-	delayMicroseconds(10);            // Wait long enough for the sensor to realize the trigger pin is high. Sensor specs say to wait 10uS.
-	digitalWrite(_triggerPin, LOW);   // Set trigger pin back to low.
-
-	#if ONE_PIN_ENABLED == true
-		pinMode(_triggerPin, INPUT);  // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
-	#endif
-
-	#if URM37_ENABLED == true
-		if (!digitalRead(_echoPin)) return false;               // Previous ping hasn't finished, abort.
-		_max_time = micros() + _maxEchoTime + MAX_SENSOR_DELAY; // Maximum time we'll wait for ping to start (most sensors are <450uS, the SRF06 can take up to 34,300uS!)
-		while (digitalRead(_echoPin))                           // Wait for ping to start.
-			if (micros() > _max_time) return false;             // Took too long to start, abort.
-	#else
-		if (digitalRead(_echoPin)) return false;                // Previous ping hasn't finished, abort.
-		_max_time = micros() + _maxEchoTime + MAX_SENSOR_DELAY; // Maximum time we'll wait for ping to start (most sensors are <450uS, the SRF06 can take up to 34,300uS!)
-		while (!digitalRead(_echoPin))                          // Wait for ping to start.
-			if (micros() > _max_time) return false;             // Took too long to start, abort.
-	#endif
-#endif
+	if (ISACTIVE(readEcho())) return false;               // Previous ping hasn't finished, abort.
+	_max_time = micros() + _maxEchoTime + MAX_SENSOR_DELAY; // Maximum time we'll wait for ping to start (most sensors are <450uS, the SRF06 can take up to 34,300uS!)
+	while (ISNOTACTIVE(readEcho())) {                       // Wait for ping to start.
+		if (micros() > _max_time) return false;             // Took too long to start, abort.
+	}
 
 	_max_time = micros() + _maxEchoTime; // Ping started, set the time-out.
 	return true;                         // Ping started successfully.
@@ -210,11 +207,7 @@ boolean UltraPing::check_timer() {
 		return false;           // Cancel ping timer.
 	}
 
-#if URM37_ENABLED == false
-	if (!(*_echoInput & _echoBit)) { // Ping echo received.
-#else
-	if (*_echoInput & _echoBit) {    // Ping echo received.
-#endif
+	if (ISACTIVE(readEcho())) {    // Ping echo received.
 		timer_stop();                // Disable timer interrupt
 		ping_result = (micros() - (_max_time - _maxEchoTime) - PING_TIMER_OVERHEAD); // Calculate ping time including overhead.
 		return true;                 // Return ping echo true.

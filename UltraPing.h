@@ -187,6 +187,11 @@
 	#undef  US_ROUNDTRIP_IN
 	#define US_ROUNDTRIP_CM 50  // Every 50uS PWM signal is low indicates 1cm distance. Default=50
 	#define US_ROUNDTRIP_IN 127 // If 50uS is 1cm, 1 inch would be 127uS (50 x 2.54 = 127). Default=127
+	#define ISACTIVE(VALUE) (!(VALUE))
+	#define ISNOTACTIVE(VALUE) (VALUE)
+#else
+	#define ISACTIVE(VALUE) (VALUE)
+	#define ISNOTACTIVE(VALUE) (!(VALUE))
 #endif
 
 
@@ -248,6 +253,14 @@ class UltraPing {
 		static void timer_stop();
 #endif
 	private:
+		inline boolean readEcho();
+		inline void setTriggerActive();
+		inline void setTriggerNotActive();
+#if ONE_PIN_ENABLED == true
+		inline void onePinSetTriggerMode();
+		inline void onePinSetEchoMode();
+#endif
+
 		boolean ping_trigger();
 		void set_max_distance(unsigned int max_cm_distance);
 #if TIMER_ENABLED == true
