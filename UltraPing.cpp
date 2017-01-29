@@ -2,7 +2,7 @@
 // UltraPing, forked by Lasse Löfquist - ultraping@tvartom.com
 // Copyright 2017 License: GNU GPL v3 http://www.gnu.org/licenses/gpl.html
 //
-// Forked from Tim Eckels excellent NewPing
+// Forked from Tim Eckel's excellent NewPing
 // ---------------------------------------------------------------------------
 // NewPing
 // Created by Tim Eckel - teckel@leethost.com
@@ -65,9 +65,66 @@ unsigned int UltraPing::ping(unsigned int max_distance) {
 	return (micros() - (_max_time - _maxEchoTime) - PING_OVERHEAD); // Calculate ping time, include overhead.
 }
 
+unsigned int UltraPing::ping_threshold(unsigned int threshold_distance, unsigned int max_distance) {
+	unsigned int hit[] = {NO_ECHO};
+	ping_multi(hit, 1, threshold_distance, max_distance);
+	return hit[0];
+}
+
+unsigned int UltraPing::ping_multi(unsigned int hit[], unsigned int maximum_hits, unsigned int threshold_distance, unsigned int max_distance) {
+	if (max_distance > 0) set_max_distance(max_distance); // Call function to set a new max sensor distance.
+
+	unsigned int offset = 0;
+	unsigned int i = 0;
+	while(i < maximum_hits) {
+		if (!ping_trigger()) return 0; // Trigger a ping, if it returns false, return 0 hits (Something wrong)
+		unsigned long first_max_time = _max_time; //The max_time from first ping, is also used later as max for second ping.
+		unsigned long first_start = (_max_time - _maxEchoTime) - PING_OVERHEAD;
+
+		while (ISACTIVE(readEcho())) {                // Wait for the ping echo.
+			if (micros() > _max_time) return i; // Stop the loop and return hits so far.
+		}
+		unsigned int first_length = micros() - first_start; // Calculate ping time, for first echo.
+
+		if (offset == 0) { //Only first loop
+			if (first_length > threshold_distance * US_ROUNDTRIP_LENGTH) {
+				offset = hit[i++] = first_length; //If first echo, above threshold, register as a hit.
+				if(i >= maximum_hits) return i; //If this method is used with maximum_hits == 1, and first_length is beyond threshold
+			} else {
+				offset = threshold_distance * US_ROUNDTRIP_LENGTH;
+			}
+		}
+		// #######################################################################################################################################################
+		while (micros() < first_start + offset);//Wait before we start next ping, to let secondary echos from first ping return before first echo from second ping.
+		// #######################################################################################################################################################
+
+		if (!ping_trigger()) return 0; // Trigger a second ping, if it returns false, return 0 hits (Something wrong)
+		while (ISACTIVE(readEcho())) {                // Wait for the ping echo.
+			if (micros() > first_max_time) return i; // No more echo within range from first ping, return result
+		}
+		unsigned long second_end_time = micros();
+
+		unsigned long lengthSecond = second_end_time - (_max_time - _maxEchoTime) - PING_OVERHEAD;
+		Serial.println(String(lengthSecond) + "<" + String(first_length) + "THREE_QUARTERS: " + String(THREE_QUARTERS(first_length)));
+		if (lengthSecond < THREE_QUARTERS(first_length)) { //If second ping is (significant) shorter than first, it must be an echo from first ping.
+			//New hit!
+			// Calculate ping time from the start of first ping, and register in hit
+			// Push offset (waiting time) forward, so we don't find this hit again.
+			// Increase number of total echos found. (i)
+			offset = hit[i++] = second_end_time - first_start;
+		} else {
+			//Too long, might be first echo from second ping, for next try increase the waiting time for second ping.
+			offset += first_length / 2;
+		}
+		if(i < maximum_hits) { //Only wait, if we are going to do more tries
+			delay(PING_MEDIAN_DELAY / 1000); // Wait until all echos ebb away
+		}
+	}
+	return i; //Maximum number of hits found, return those found so far
+}
 
 unsigned long UltraPing::ping_length(unsigned int max_distance) {
-	unsigned long echoTime = UltraPing::ping(max_distance); // Calls the ping method and returns with the ping echo distance in uS.
+	unsigned long echoTime = ping(max_distance); // Calls the ping method and returns with the ping echo distance in uS.
 	return ULTRA_PING_US_2_LENGTH_UNIT(echoTime); // Convert uS to length unit.
 }
 
