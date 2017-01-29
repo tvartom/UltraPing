@@ -80,21 +80,13 @@ unsigned int UltraPing::ping(unsigned int max_cm_distance) {
 
 unsigned long UltraPing::ping_cm(unsigned int max_cm_distance) {
 	unsigned long echoTime = UltraPing::ping(max_cm_distance); // Calls the ping method and returns with the ping echo distance in uS.
-#if ROUNDING_ENABLED == false
-	return (echoTime / US_ROUNDTRIP_CM);              // Call the ping method and returns the distance in centimeters (no rounding).
-#else
-	return NewPingConvert(echoTime, US_ROUNDTRIP_CM); // Convert uS to centimeters.
-#endif
+	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_CM); // Convert uS to centimeters.
 }
 
 
 unsigned long UltraPing::ping_in(unsigned int max_cm_distance) {
 	unsigned long echoTime = UltraPing::ping(max_cm_distance); // Calls the ping method and returns with the ping echo distance in uS.
-#if ROUNDING_ENABLED == false
-	return (echoTime / US_ROUNDTRIP_IN);              // Call the ping method and returns the distance in inches (no rounding).
-#else
-	return NewPingConvert(echoTime, US_ROUNDTRIP_IN); // Convert uS to inches.
-#endif
+	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_IN); // Convert uS to inches.
 }
 
 
@@ -351,18 +343,10 @@ ISR(TIMER2_COMPA_vect) {
 // ---------------------------------------------------------------------------
 
 unsigned int UltraPing::convert_cm(unsigned int echoTime) {
-#if ROUNDING_ENABLED == false
-	return (echoTime / US_ROUNDTRIP_CM);              // Convert uS to centimeters (no rounding).
-#else
-	return NewPingConvert(echoTime, US_ROUNDTRIP_CM); // Convert uS to centimeters.
-#endif
+	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_CM); // Convert uS to centimeters.
 }
 
 
 unsigned int UltraPing::convert_in(unsigned int echoTime) {
-#if ROUNDING_ENABLED == false
-	return (echoTime / US_ROUNDTRIP_IN);              // Convert uS to inches (no rounding).
-#else
-	return NewPingConvert(echoTime, US_ROUNDTRIP_IN); // Convert uS to inches.
-#endif
+	return ULTRA_PING_CONVERT(echoTime, US_ROUNDTRIP_IN); // Convert uS to inches.
 }

@@ -189,8 +189,14 @@
 	#define US_ROUNDTRIP_IN 127 // If 50uS is 1cm, 1 inch would be 127uS (50 x 2.54 = 127). Default=127
 #endif
 
-// Conversion from uS to distance (round result to nearest cm or inch).
-#define NewPingConvert(echoTime, conversionFactor) (max(((unsigned int)echoTime + conversionFactor / 2) / conversionFactor, (echoTime ? 1 : 0)))
+
+// Conversion from uS to distance
+#if ROUNDING_ENABLED == false
+	#define ULTRA_PING_CONVERT(echoTime, conversionFactor) (echoTime / conversionFactor)
+#else
+	//(round result to nearest cm or inch).
+	#define ULTRA_PING_CONVERT(echoTime, conversionFactor) (max(((unsigned int)echoTime + conversionFactor / 2) / conversionFactor, (echoTime ? 1 : 0)))
+#endif
 
 // Detect non-AVR microcontrollers (Teensy 3.x, Arduino DUE, etc.) and don't use port registers or timer interrupts as required.
 #if (defined (__arm__) && defined (TEENSYDUINO))
