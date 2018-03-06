@@ -19,7 +19,7 @@
 // ---------------------------------------------------------------------------
 
 UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_distance) {
-#if DO_BITWISE == true
+#if ULTRAPING_DO_BITWISE == true
 	_triggerBit = digitalPinToBitMask(trigger_pin); // Get the port register bitmask for the trigger pin.
 	_echoBit = digitalPinToBitMask(echo_pin);       // Get the port register bitmask for the echo pin.
 
@@ -34,7 +34,7 @@ UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_dis
 
 	set_max_distance(max_distance); // Call function to set the max sensor distance.
 
-#if (defined (__arm__) && defined (TEENSYDUINO)) || DO_BITWISE != true
+#if (defined (__arm__) && defined (TEENSYDUINO)) || ULTRAPING_DO_BITWISE != true
 	pinMode(echo_pin, INPUT);     // Set echo pin to input (on Teensy 3.x (ARM), pins default to disabled, at least one pinMode() is needed for GPIO mode).
 	pinMode(trigger_pin, OUTPUT); // Set trigger pin to output (on Teensy 3.x (ARM), pins default to disabled, at least one pinMode() is needed for GPIO mode).
 #endif
@@ -43,7 +43,7 @@ UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_dis
 	pinMode(echo_pin, INPUT);     // Set echo pin to input for the Arduino Yun, not sure why it doesn't default this way.
 #endif
 
-#if ONE_PIN_ENABLED != true && DO_BITWISE == true
+#if ULTRAPING_ONE_PIN_ENABLED != true && ULTRAPING_DO_BITWISE == true
 	*_triggerMode |= _triggerBit; // Set trigger pin to output.
 #endif
 }
@@ -56,17 +56,17 @@ UltraPing::UltraPing(uint8_t trigger_pin, uint8_t echo_pin, unsigned int max_dis
 unsigned int UltraPing::ping(unsigned int max_distance) {
 	if (max_distance > 0) set_max_distance(max_distance); // Call function to set a new max sensor distance.
 
-	if (!ping_trigger()) return NO_ECHO; // Trigger a ping, if it returns false, return NO_ECHO to the calling function.
+	if (!ping_trigger()) return  ULTRAPING_NO_ECHO; // Trigger a ping, if it returns false, return NO_ECHO to the calling function.
 
-	while (ISACTIVE(readEcho())) {                // Wait for the ping echo.
-		if (micros() > _max_time) return NO_ECHO; // Stop the loop and return NO_ECHO (false) if we're beyond the set maximum distance.
+	while (ULTRAPING_ISACTIVE(readEcho())) {                // Wait for the ping echo.
+		if (micros() > _max_time) return ULTRAPING_NO_ECHO; // Stop the loop and return NO_ECHO (false) if we're beyond the set maximum distance.
 	}
 
-	return (micros() - (_max_time - _maxEchoTime) - PING_OVERHEAD); // Calculate ping time, include overhead.
+	return (micros() - (_max_time - _maxEchoTime) - ULTRAPING_PING_OVERHEAD); // Calculate ping time, include overhead.
 }
 
 unsigned int UltraPing::ping_threshold(unsigned int threshold_distance, unsigned int max_distance) {
-	unsigned int hit[] = {NO_ECHO};
+	unsigned int hit[] = {ULTRAPING_NO_ECHO};
 	ping_multi(hit, 1, threshold_distance, max_distance);
 	return hit[0];
 }
@@ -79,19 +79,19 @@ unsigned int UltraPing::ping_multi(unsigned int hit[], unsigned int maximum_hits
 	while(i < maximum_hits) {
 		if (!ping_trigger()) return 0; // Trigger a ping, if it returns false, return 0 hits (Something wrong)
 		unsigned long first_max_time = _max_time; //The max_time from first ping, is also used later as max for second ping.
-		unsigned long first_start = (_max_time - _maxEchoTime) - PING_OVERHEAD;
+		unsigned long first_start = (_max_time - _maxEchoTime) - ULTRAPING_PING_OVERHEAD;
 
-		while (ISACTIVE(readEcho())) {                // Wait for the ping echo.
+		while (ULTRAPING_ISACTIVE(readEcho())) {                // Wait for the ping echo.
 			if (micros() > _max_time) return i; // Stop the loop and return hits so far.
 		}
 		unsigned int first_length = micros() - first_start; // Calculate ping time, for first echo.
 
 		if (offset == 0) { //Only first loop
-			if (first_length > threshold_distance * US_ROUNDTRIP_LENGTH) {
+			if (first_length > threshold_distance * ULTRAPING_US_ROUNDTRIP_LENGTH) {
 				offset = hit[i++] = first_length; //If first echo, above threshold, register as a hit.
 				if(i >= maximum_hits) return i; //If this method is used with maximum_hits == 1, and first_length is beyond threshold
 			} else {
-				offset = threshold_distance * US_ROUNDTRIP_LENGTH;
+				offset = threshold_distance * ULTRAPING_US_ROUNDTRIP_LENGTH;
 			}
 		}
 		// #######################################################################################################################################################
@@ -99,13 +99,13 @@ unsigned int UltraPing::ping_multi(unsigned int hit[], unsigned int maximum_hits
 		// #######################################################################################################################################################
 
 		if (!ping_trigger()) return 0; // Trigger a second ping, if it returns false, return 0 hits (Something wrong)
-		while (ISACTIVE(readEcho())) {                // Wait for the ping echo.
+		while (ULTRAPING_ISACTIVE(readEcho())) {                // Wait for the ping echo.
 			if (micros() > first_max_time) return i; // No more echo within range from first ping, return result
 		}
 		unsigned long second_end_time = micros();
 
-		unsigned long lengthSecond = second_end_time - (_max_time - _maxEchoTime) - PING_OVERHEAD;
-		if (lengthSecond < THREE_QUARTERS(first_length)) { //If second ping is (significant) shorter than first, it must be an echo from first ping.
+		unsigned long lengthSecond = second_end_time - (_max_time - _maxEchoTime) - ULTRAPING_PING_OVERHEAD;
+		if (lengthSecond < ULTRAPING_THREE_QUARTERS(first_length)) { //If second ping is (significant) shorter than first, it must be an echo from first ping.
 			//New hit!
 			// Calculate ping time from the start of first ping, and register in hit
 			// Push offset (waiting time) forward, so we don't find this hit again.
@@ -116,7 +116,7 @@ unsigned int UltraPing::ping_multi(unsigned int hit[], unsigned int maximum_hits
 			offset += first_length / 2;
 		}
 		if(i < maximum_hits) { //Only wait, if we are going to do more tries
-			delay(PING_MEDIAN_DELAY / 1000); // Wait until all echos ebb away
+			delay(ULTRAPING_PING_MEDIAN_DELAY / 1000); // Wait until all echos ebb away
 		}
 	}
 	return i; //Maximum number of hits found, return those found so far
@@ -124,7 +124,7 @@ unsigned int UltraPing::ping_multi(unsigned int hit[], unsigned int maximum_hits
 
 unsigned long UltraPing::ping_length(unsigned int max_distance) {
 	unsigned long echoTime = ping(max_distance); // Calls the ping method and returns with the ping echo distance in uS.
-	return ULTRA_PING_US_2_LENGTH_UNIT(echoTime); // Convert uS to length unit.
+	return ULTRAPING_US_2_LENGTH_UNIT(echoTime); // Convert uS to length unit.
 }
 
 
@@ -132,13 +132,13 @@ unsigned long UltraPing::ping_median(uint8_t it, unsigned int max_distance) {
 	unsigned int uS[it], last;
 	uint8_t j, i = 0;
 	unsigned long t;
-	uS[0] = NO_ECHO;
+	uS[0] = ULTRAPING_NO_ECHO;
 
 	while (i < it) {
 		t = micros();                  // Start ping timestamp.
 		last = ping(max_distance);  // Send ping.
 
-		if (last != NO_ECHO) {         // Ping in range, include as part of median.
+		if (last != ULTRAPING_NO_ECHO) {         // Ping in range, include as part of median.
 			if (i > 0) {               // Don't start sort till second ping.
 				for (j = i; j > 0 && uS[j - 1] < last; j--) // Insertion sort loop.
 					uS[j] = uS[j - 1];                      // Shift ping array to correct position for sort insertion.
@@ -147,8 +147,8 @@ unsigned long UltraPing::ping_median(uint8_t it, unsigned int max_distance) {
 			i++;                       // Move to next ping.
 		} else it--;                   // Ping out of range, skip and don't include as part of median.
 
-		if (i < it && micros() - t < PING_MEDIAN_DELAY)
-			delay((PING_MEDIAN_DELAY + t - micros()) / 1000); // Millisecond delay between pings.
+		if (i < it && micros() - t < ULTRAPING_PING_MEDIAN_DELAY)
+			delay((ULTRAPING_PING_MEDIAN_DELAY + t - micros()) / 1000); // Millisecond delay between pings.
 
 	}
 	return (uS[it >> 1]); // Return the ping distance median.
@@ -156,11 +156,11 @@ unsigned long UltraPing::ping_median(uint8_t it, unsigned int max_distance) {
 
 // -------------------------------------------------------------------------------------
 // Input and output methods (Bitwise or normal)
-// All of them are marked inline, so compiler will probably inline them at comile-time.
+// All of them are marked inline, so compiler will probably inline them at compile-time.
 // -------------------------------------------------------------------------------------
 
 inline boolean UltraPing::readEcho() {
-	#if DO_BITWISE == true
+	#if ULTRAPING_DO_BITWISE == true
 		return *_echoInput & _echoBit;
 	#else
 		return digitalRead(_echoPin);
@@ -168,29 +168,29 @@ inline boolean UltraPing::readEcho() {
 }
 
 inline void UltraPing::setTriggerActive() {
-	#if DO_BITWISE == true
+	#if ULTRAPING_DO_BITWISE == true
 		*_triggerOutput |= _triggerBit;    // Set trigger pin high, this tells the sensor to send out a ping.
 	#else
 		digitalWrite(_triggerPin, HIGH);   // Set trigger pin high, this tells the sensor to send out a ping.
 	#endif
 }
 inline void UltraPing::setTriggerNotActive() {
-	#if DO_BITWISE == true
+	#if ULTRAPING_DO_BITWISE == true
 		*_triggerOutput &= ~_triggerBit;   // Set the trigger pin low.
 	#else
 		digitalWrite(_triggerPin, LOW);    // Set the trigger pin low.
 	#endif
 }
-#if ONE_PIN_ENABLED == true
+#if ULTRAPING_ONE_PIN_ENABLED == true
 	inline void UltraPing::onePinSetTriggerMode() {
-		#if DO_BITWISE == true
+		#if ULTRAPING_DO_BITWISE == true
 			*_triggerMode |= _triggerBit;  // Set trigger pin to output.
 		#else
 			pinMode(_triggerPin, OUTPUT); // Set trigger pin to output.
 		#endif
 	}
 	inline void UltraPing::onePinSetEchoMode() {
-		#if DO_BITWISE == true
+		#if ULTRAPING_DO_BITWISE == true
 			*_triggerMode &= ~_triggerBit; // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
 		#else
 			pinMode(_triggerPin, INPUT);  // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
@@ -203,7 +203,7 @@ inline void UltraPing::setTriggerNotActive() {
 // ---------------------------------------------------------------------------
 
 boolean UltraPing::ping_trigger() {
-	#if ONE_PIN_ENABLED == true
+	#if ULTRAPING_ONE_PIN_ENABLED == true
 		onePinSetTriggerMode();
 	#endif
 
@@ -213,13 +213,13 @@ boolean UltraPing::ping_trigger() {
 	delayMicroseconds(10);             // Wait long enough for the sensor to realize the trigger pin is high. Sensor specs say to wait 10uS.
 	setTriggerNotActive();             // Set trigger pin back to low.
 
-	#if ONE_PIN_ENABLED == true
+	#if ULTRAPING_ONE_PIN_ENABLED == true
 		onePinSetEchoMode(); // Set trigger pin to input (when using one Arduino pin, this is technically setting the echo pin to input as both are tied to the same Arduino pin).
 	#endif
 
-	if (ISACTIVE(readEcho())) return false;               // Previous ping hasn't finished, abort.
-	_max_time = micros() + _maxEchoTime + MAX_SENSOR_DELAY; // Maximum time we'll wait for ping to start (most sensors are <450uS, the SRF06 can take up to 34,300uS!)
-	while (ISNOTACTIVE(readEcho())) {                       // Wait for ping to start.
+	if (ULTRAPING_ISACTIVE(readEcho())) return false;               // Previous ping hasn't finished, abort.
+	_max_time = micros() + _maxEchoTime + ULTRAPING_MAX_SENSOR_DELAY; // Maximum time we'll wait for ping to start (most sensors are <450uS, the SRF06 can take up to 34,300uS!)
+	while (ULTRAPING_ISNOTACTIVE(readEcho())) {                       // Wait for ping to start.
 		if (micros() > _max_time) return false;             // Took too long to start, abort.
 	}
 
@@ -229,15 +229,15 @@ boolean UltraPing::ping_trigger() {
 
 
 void UltraPing::set_max_distance(unsigned int max_distance) {
-#if ROUNDING_ENABLED == false
-	_maxEchoTime = min(max_distance + 1, (unsigned int) MAX_SENSOR_DISTANCE + 1) * US_ROUNDTRIP_LENGTH; // Calculate the maximum distance in uS (no rounding).
+#if ULTRAPING_ROUNDING_ENABLED == false
+	_maxEchoTime = min(max_distance + 1, (unsigned int) ULTRAPING_MAX_SENSOR_DISTANCE + 1) * ULTRAPING_US_ROUNDTRIP_LENGTH; // Calculate the maximum distance in uS (no rounding).
 #else
-	_maxEchoTime = min(max_distance, (unsigned int) MAX_SENSOR_DISTANCE) * US_ROUNDTRIP_LENGTH + (US_ROUNDTRIP_LENGTH / 2); // Calculate the maximum distance in uS.
+	_maxEchoTime = min(max_distance, (unsigned int) ULTRAPING_MAX_SENSOR_DISTANCE) * ULTRAPING_US_ROUNDTRIP_LENGTH + (ULTRAPING_US_ROUNDTRIP_LENGTH / 2); // Calculate the maximum distance in uS.
 #endif
 }
 
 
-#if TIMER_ENABLED == true && DO_BITWISE == true
+#if ULTRAPING_TIMER_ENABLED == true && ULTRAPING_DO_BITWISE == true
 
 // ---------------------------------------------------------------------------
 // Timer interrupt ping methods (won't work with non-AVR, ATmega128 and all ATtiny microcontrollers)
@@ -247,7 +247,7 @@ void UltraPing::ping_timer(void (*userFunc)(void), unsigned int max_distance) {
 	if (max_distance > 0) set_max_distance(max_distance); // Call function to set a new max sensor distance.
 
 	if (!ping_trigger()) return;         // Trigger a ping, if it returns false, return without starting the echo timer.
-	timer_us(ECHO_TIMER_FREQ, userFunc); // Set ping echo timer check every ECHO_TIMER_FREQ uS.
+	timer_us(ULTRAPING_ECHO_TIMER_FREQ, userFunc); // Set ping echo timer check every ECHO_TIMER_FREQ uS.
 }
 
 
@@ -257,9 +257,9 @@ boolean UltraPing::check_timer() {
 		return false;           // Cancel ping timer.
 	}
 
-	if (ISACTIVE(readEcho())) {    // Ping echo received.
+	if (ULTRAPING_ISACTIVE(readEcho())) {    // Ping echo received.
 		timer_stop();                // Disable timer interrupt
-		ping_result = (micros() - (_max_time - _maxEchoTime) - PING_TIMER_OVERHEAD); // Calculate ping time including overhead.
+		ping_result = (micros() - (_max_time - _maxEchoTime) - ULTRAPING_PING_TIMER_OVERHEAD); // Calculate ping time including overhead.
 		return true;                 // Return ping echo true.
 	}
 
@@ -385,6 +385,6 @@ ISR(TIMER2_COMPA_vect) {
 // Conversion method (rounds result to nearest cm or inch).
 // ---------------------------------------------------------------------------
 unsigned int UltraPing::convert_length(unsigned int echoTime) {
-	return ULTRA_PING_US_2_LENGTH_UNIT(echoTime); // Convert uS to length unit.
+	return ULTRAPING_US_2_LENGTH_UNIT(echoTime); // Convert uS to length unit.
 }
 
