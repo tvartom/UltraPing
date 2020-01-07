@@ -4,8 +4,15 @@
 * Possible to use a threshold to only read distances further away
 * A fork of Tim Eckel's New Ping.
 
-Link to download:
-[https://bitbucket.org/Tvartom/ultraping/downloads?tab=tags](https://bitbucket.org/Tvartom/ultraping/downloads?tab=tags)
+## How does it work? ##
+The ultrasonic sensor terminate its measuring on a ping after the first echo is recieved.
+By starting a new ping, that will terminate not on its own echo, rather
+on a second echo from the first ping, it is possible to see behind the first echo.
+It require the first echo not to be too close to the sensor, and also result some loss in accuracy,
+but it works.
+To make it work the library make several measuring rounds, gradually increasing the timing between
+the pings. It take som time for the sensor to restart, so echos that are too close to each other will
+not be possible to detect.
 
 ```
 #!arduino
@@ -25,7 +32,6 @@ Link to download:
 // software, but I realized it could be made.
 // Instead of starting from scratch, I started to modify Tim Eckel's excellent
 // library. Tim's library also taught me a lot of ultrasonic sensor programming.
-// Would be honored if Tim wants to include any of my code in his project.
 // ---------------------------------------------------------------------------
 //
 // ---------------------------------------------------------------------------
