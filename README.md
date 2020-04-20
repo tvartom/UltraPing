@@ -10,8 +10,8 @@ By starting a new ping, that will terminate not on its own echo, rather
 on a second echo from the first ping, it is possible to see behind the first echo.
 It require the first echo not to be too close to the sensor, and also result some loss in accuracy,
 but it works.
-To make it work the library make several measuring rounds, gradually increasing the timing between
-the pings. It take som time for the sensor to restart, so echos that are too close to each other will
+To make it work the library makes several measuring rounds, gradually increasing the timing between
+the pings. It takes som time for the sensor to restart, so echos that are too close to each other will
 not be possible to detect.
 
 ```
